@@ -195,17 +195,19 @@ window.abrir=async(id)=>{
   cont.innerHTML="";
   nuevosItems=[];
 
-  data.items.forEach((it,i)=>{
-    cont.innerHTML+=`
-    <div class="row">
-      <input value="${it.nombre||""}" ${modo!="creador"?"disabled":""}
-      onchange="editar(${i},this.value)">
-      <input class="qty" value="${it.cantidad||0}"
-      ${modo=="ver"?"disabled":""}
-      onchange="cantidad(${i},this.value)">
-      ${modo=="creador"?`<button onclick="borrar(${i})">🗑</button>`:""}
-    </div>`;
-  });
+ data.items.forEach((it,i)=>{
+  cont.innerHTML+=`
+  <div class="row">
+    <input value="${it.nombre || it.texto || ""}" ${modo!="creador"?"disabled":""}
+    onchange="editar(${i},this.value)">
+
+    <input class="qty" value="${it.cantidad || 0}"
+    ${modo=="ver"?"disabled":""}
+    onchange="cantidad(${i},this.value)">
+
+    ${modo=="creador"?`<button onclick="borrar(${i})">🗑</button>`:""}
+  </div>`;
+});
 
   // extras llenador
   if(modo==="llenar"){
