@@ -4,167 +4,26 @@
 <meta charset="UTF-8">
 <title>Inventario PRO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<style>
-body { font-family: Arial; padding: 20px; }
-.item { display: flex; gap: 10px; margin-bottom: 10px; }
-input { padding: 8px; }
-button { padding: 10px; margin: 5px; }
-.card { padding: 10px; border: 1px solid #ccc; margin-bottom: 8px; border-radius: 8px; }
-</style>
 </head>
+
 <body>
 
 <h2>Inventario PRO</h2>
 <div id="app"></div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script>
+const params = new URLSearchParams(location.search);
+let mode = params.get("mode") || "creator";
 
-/* 🔥 TU CONFIG */
-const firebaseConfig = {
-  apiKey: "AIzaSyCVjGdI5Z3fW8bjHwfBgT5RoOfZZ4Vap8c",
-  authDomain: "checklistempresa.firebaseapp.com",
-  projectId: "checklistempresa",
-  storageBucket: "checklistempresa.firebasestorage.app",
-  messagingSenderId: "798095528680",
-  appId: "1:798095528680:web:3114c0b18d5b8001826f5d"
-};
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const app = document.getElementById("app");
 
-/* PARAMS */
-const params = new URLSearchParams(window.location.search);
-let mode = params.get("mode") || params.get("modo");
-let listId = params.get("id");
-
-if (mode) mode = mode.toLowerCase();
-if (mode === "llenar") mode = "filler";
-if (mode === "ver") mode = "viewer";
-if (mode === "crear") mode = "creator";
-if (!mode) mode = "creator";
-
-if (!listId) listId = Date.now().toString();
-
-const appDiv = document.getElementById("app");
-let items = [];
-
-/* AUTOSAVE */
-async function autoSave() {
-  await setDoc(doc(db, "listas", listId), { items });
+if (mode === "creator") {
+  app.innerHTML = "<h3>Modo Creador</h3>";
+} else if (mode === "filler") {
+  app.innerHTML = "<h3>Modo Llenador</h3>";
+} else {
+  app.innerHTML = "<h3>Modo Visual</h3>";
 }
-
-/* RENDER */
-function render() {
-  appDiv.innerHTML = "";
-
-  /* ➕ SOLO CREADOR */
-  if (mode === "creator") {
-    const add = document.createElement("button");
-    add.textContent = "➕ Agregar";
-    add.onclick = () => {
-      items.push({ name: "", qty: "" });
-      render();
-    };
-    appDiv.appendChild(add);
-  }
-
-  /* ESPACIOS EXTRA LLENADOR */
-  if (mode === "filler") {
-    let vacios = items.filter(i => !i.name && !i.qty).length;
-    for (let i = vacios; i < 3; i++) {
-      items.push({ name: "", qty: "" });
-    }
-  }
-
-  items.forEach((item, i) => {
-
-    /* 👁️ VISUAL BONITO */
-    if (mode === "viewer") {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.textContent = item.name + " - " + item.qty;
-      appDiv.appendChild(card);
-      return;
-    }
-
-    const div = document.createElement("div");
-    div.className = "item";
-
-    const name = document.createElement("input");
-    name.value = item.name;
-    name.placeholder = "Artículo";
-
-    const qty = document.createElement("input");
-    qty.type = "number";
-    qty.value = item.qty;
-    qty.placeholder = "Cantidad";
-
-    /* MODOS */
-    if (mode === "filler") {
-      if (item.name) name.disabled = true;
-      qty.disabled = false;
-    }
-
-    /* AUTOSAVE */
-    name.oninput = e => { item.name = e.target.value; autoSave(); };
-    qty.oninput = e => { item.qty = e.target.value; autoSave(); };
-
-    div.appendChild(name);
-    div.appendChild(qty);
-
-    /* 🗑 SOLO CREADOR */
-    if (mode === "creator") {
-      const del = document.createElement("button");
-      del.textContent = "🗑";
-      del.onclick = () => {
-        items.splice(i, 1);
-        autoSave();
-        render();
-      };
-      div.appendChild(del);
-    }
-
-    appDiv.appendChild(div);
-  });
-
-  /* 🔗 COMPARTIR */
-  const share = document.createElement("div");
-
-  if (mode === "creator") {
-    share.innerHTML = `
-    <p>Llenador:</p>
-    <p>${location.origin}?id=${listId}&mode=filler</p>
-    <p>Visual:</p>
-    <p>${location.origin}?id=${listId}&mode=viewer</p>`;
-  }
-
-  if (mode === "filler") {
-    const url = `${location.origin}?id=${listId}&mode=viewer`;
-
-    const btn = document.createElement("button");
-    btn.textContent = "📤 Compartir resultado";
-    btn.onclick = () => {
-      window.open(`https://wa.me/?text=${encodeURIComponent(url)}`);
-    };
-
-    appDiv.appendChild(btn);
-  }
-
-  appDiv.appendChild(share);
-}
-
-/* LOAD */
-async function loadData() {
-  const snap = await getDoc(doc(db, "listas", listId));
-  if (snap.exists()) {
-    items = snap.data().items || [];
-  }
-  render();
-}
-
-loadData();
 </script>
 
 </body>
