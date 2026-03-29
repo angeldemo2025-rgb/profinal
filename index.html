@@ -1,116 +1,28 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Inventario PRO</title>
+  <meta charset="UTF-8">
+  <title>Inventario PRO</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<style>
-:root{
-  --bg:#0f172a;
-  --card:#1e293b;
-  --text:#fff;
-  --btn:#22c55e;
-}
-.light{
-  --bg:#e2e8f0;
-  --card:#fff;
-  --text:#000;
-}
-
-body{
-  margin:0;
-  font-family:sans-serif;
-  background:var(--bg);
-  color:var(--text);
-}
-
-header{
-  padding:15px;
-  text-align:center;
-  background:var(--card);
-  font-size:20px;
-  font-weight:bold;
-}
-
-.container{padding:15px;}
-
-.card{
-  background:var(--card);
-  padding:15px;
-  border-radius:12px;
-  margin-bottom:10px;
-}
-
-button{
-  background:var(--btn);
-  border:none;
-  padding:10px;
-  border-radius:8px;
-  margin:5px;
-  cursor:pointer;
-}
-
-input{
-  padding:10px;
-  border-radius:8px;
-  border:none;
-  margin:5px;
-}
-
-.row{
-  display:flex;
-  gap:5px;
-  margin-bottom:10px;
-}
-
-.row input[type=text]{flex:1;}
-.qty{width:70px;text-align:center;}
-
-.top{
-  display:flex;
-  justify-content:space-between;
-  margin-bottom:10px;
-}
-</style>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input { padding: 8px; margin: 5px; }
+    button { padding: 10px; margin: 5px; }
+    .item { display: flex; gap: 10px; margin-bottom: 10px; }
+  </style>
 </head>
-
 <body>
 
-<header>Inventario PRO</header>
-
-<div class="container">
-
-<div class="top">
-<select onchange="cambiarIdioma(this.value)">
-<option value="es">ES</option>
-<option value="en">EN</option>
-</select>
-<button onclick="cambiarTema()">🎨</button>
-</div>
-
-<div id="home">
-<input id="nombreLista" placeholder="Nombre lista">
-<button onclick="crearLista()">Crear</button>
-
-<h3>Listas</h3>
-<div id="listas"></div>
-</div>
-
-<div id="detalle" style="display:none;">
-<h2 id="titulo"></h2>
-<div id="items"></div>
-<div id="acciones"></div>
-</div>
-
-</div>
+<h2>Inventario PRO</h2>
+<div id="app"></div>
 
 <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-const firebaseConfig = {
+/* 🔥 TU FIREBASE */
+  const firebaseConfig = {
   apiKey: "AIzaSyCVjGdI5Z3fW8bjHwfBgT5RoOfZZ4Vap8c",
   authDomain: "checklistempresa.firebaseapp.com",
   projectId: "checklistempresa",
@@ -118,228 +30,180 @@ const firebaseConfig = {
   messagingSenderId: "798095528680",
   appId: "1:798095528680:web:3114c0b18d5b8001826f5d"
 };
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-let actualId=null;
-let modo="creador";
-let idioma="es";
-let nuevosItems=[];
+/* 🔗 PARAMETROS */
+const params = new URLSearchParams(window.location.search);
 
-// 🌐 idioma
-function t(txt){
-  const textos={
-    es:{crear:"Crear",volver:"Volver",compartir:"Compartir"},
-    en:{crear:"Create",volver:"Back",compartir:"Share"}
-  };
-  return textos[idioma][txt]||txt;
+let mode = params.get("mode") || params.get("modo");
+let listId = params.get("id");
+
+/* NORMALIZAR */
+if (mode) mode = mode.toLowerCase();
+
+/* TRADUCIR */
+if (mode === "llenar") mode = "filler";
+if (mode === "ver") mode = "viewer";
+if (mode === "crear") mode = "creator";
+
+/* DEFAULT */
+if (!mode) mode = "creator";
+
+/* ID */
+if (!listId) {
+  listId = Date.now().toString();
 }
 
-window.cambiarIdioma=(v)=>{
-  idioma=v;
-  cargarListas();
-};
+/* UI */
+const appDiv = document.getElementById("app");
+let items = [];
 
-// 🎨 tema
-window.cambiarTema=()=>{
-  document.body.classList.toggle("light");
-};
-
-// crear lista
-window.crearLista=async()=>{
-  let nombre=document.getElementById("nombreLista").value;
-  if(!nombre) return;
-
-  await addDoc(collection(db,"listas"),{
-    nombre,
-    items:[]
-  });
-
-  cargarListas();
-};
-
-// cargar listas
-async function cargarListas(){
-  let cont=document.getElementById("listas");
-  cont.innerHTML="";
-
-  let snap=await getDocs(collection(db,"listas"));
-
-  snap.forEach(d=>{
-    let data=d.data();
-
-    cont.innerHTML+=`
-    <div class="card">
-      ${data.nombre}
-      <br>
-      <button onclick="abrir('${d.id}')">Abrir</button>
-    </div>`;
-  });
+/* AUTOGUARDAR */
+async function autoSave() {
+  try {
+    await setDoc(doc(db, "listas", listId), { items });
+  } catch (e) {
+    console.error(e);
+  }
 }
 
-// abrir lista
-window.abrir=async(id)=>{
-  actualId=id;
+/* RENDER */
+function render() {
+  appDiv.innerHTML = "";
 
-  document.getElementById("home").style.display="none";
-  document.getElementById("detalle").style.display="block";
+  const info = document.createElement("p");
+  info.textContent = "Modo: " + mode;
+  appDiv.appendChild(info);
 
-  let ref=doc(db,"listas",id);
-  let snap=await getDoc(ref);
-  let data=snap.data();
+  /* BOTON AGREGAR (solo creador) */
+  if (mode === "creator") {
+    const btnAdd = document.createElement("button");
+    btnAdd.textContent = "+ Agregar artículo";
+    btnAdd.onclick = () => {
+      items.push({ name: "", qty: "" });
+      render();
+    };
+    appDiv.appendChild(btnAdd);
+  }
 
-  document.getElementById("titulo").innerText=data.nombre;
-
-  let cont=document.getElementById("items");
-  cont.innerHTML="";
-  nuevosItems=[];
-
- data.items.forEach((it,i)=>{
-  cont.innerHTML+=`
-  <div class="row">
-    <input value="${it.nombre || it.texto || ""}" ${modo!="creador"?"disabled":""}
-    onchange="editar(${i},this.value)">
-
-    <input class="qty" value="${it.cantidad || 0}"
-    ${modo=="ver"?"disabled":""}
-    onchange="cantidad(${i},this.value)">
-
-    ${modo=="creador"?`<button onclick="borrar(${i})">🗑</button>`:""}
-  </div>`;
-});
-
-  // extras llenador
-  if(modo==="llenar"){
-    for(let i=0;i<5;i++){
-      cont.innerHTML+=`
-      <div class="row">
-        <input placeholder="Nuevo artículo" oninput="nuevoNombre(this)">
-        <input class="qty" value="0" oninput="nuevoCantidad(this)">
-      </div>`;
+  /* ESPACIOS EXTRA PARA LLENADOR */
+  if (mode === "filler") {
+    const extra = 3;
+    const vacios = items.filter(i => !i.name && !i.qty).length;
+    for (let i = vacios; i < extra; i++) {
+      items.push({ name: "", qty: "" });
     }
   }
 
-  let acciones=document.getElementById("acciones");
-  acciones.innerHTML="";
+  /* LISTA */
+  items.forEach((item) => {
+    const isExtra = !item.name && !item.qty;
 
-  if(modo==="creador"){
-    acciones.innerHTML=`
-    <button onclick="agregar()">+ Artículo</button>
-    <button onclick="compartir('llenar')">${t("compartir")}</button>
-    <button onclick="volver()">${t("volver")}</button>`;
+    const div = document.createElement("div");
+    div.className = "item";
+
+    const name = document.createElement("input");
+    name.placeholder = "Artículo";
+    name.value = item.name;
+
+    const qty = document.createElement("input");
+    qty.type = "number";
+    qty.placeholder = "Cantidad";
+    qty.value = item.qty;
+
+    /* MODOS CORRECTOS */
+    if (mode === "filler") {
+      if (isExtra) {
+        name.disabled = false; // puede crear nuevos
+      } else {
+        name.disabled = true; // bloquea originales
+      }
+      qty.disabled = false;
+    } else if (mode === "viewer") {
+      name.disabled = true;
+      qty.disabled = true;
+    }
+
+    name.oninput = (e) => {
+      item.name = e.target.value;
+      autoSave();
+    };
+
+    qty.oninput = (e) => {
+      item.qty = e.target.value;
+      autoSave();
+    };
+
+    div.appendChild(name);
+    div.appendChild(qty);
+    appDiv.appendChild(div);
+  });
+
+  /* GUARDAR */
+  if (mode !== "viewer") {
+    const btnSave = document.createElement("button");
+    btnSave.textContent = "Guardar";
+    btnSave.onclick = autoSave;
+    appDiv.appendChild(btnSave);
   }
 
-  if(modo==="llenar"){
-    acciones.innerHTML=`
-    <button onclick="compartir('ver')">${t("compartir")}</button>`;
+  /* COMPARTIR */
+  const links = document.createElement("div");
+  let html = "<p><b>Compartir:</b></p>";
+
+  if (mode === "creator") {
+    html += `
+      <p>Creador: ${location.origin}?id=${listId}&mode=creator</p>
+      <p>Llenador: ${location.origin}?id=${listId}&mode=filler</p>
+      <p>Visual: ${location.origin}?id=${listId}&mode=viewer</p>
+    `;
   }
 
-  if(modo==="ver"){
-    acciones.innerHTML="";
-  }
-};
+  if (mode === "filler") {
+    const url = `${location.origin}?id=${listId}&mode=viewer`;
 
-// editar nombre
-window.editar=async(i,val)=>{
-  let ref=doc(db,"listas",actualId);
-  let snap=await getDoc(ref);
-  let data=snap.data();
+    html += `<p>Enviar resultado:</p><p>${url}</p>`;
 
-  data.items[i].nombre=val;
-  await updateDoc(ref,{items:data.items});
-};
+    const btn = document.createElement("button");
+    btn.textContent = "Compartir por WhatsApp";
+    btn.onclick = () => {
+      window.open(`https://wa.me/?text=${encodeURIComponent(url)}`);
+    };
 
-// cantidad
-window.cantidad=async(i,val)=>{
-  let ref=doc(db,"listas",actualId);
-  let snap=await getDoc(ref);
-  let data=snap.data();
-
-  data.items[i].cantidad=val;
-  await updateDoc(ref,{items:data.items});
-};
-
-// agregar
-window.agregar=async()=>{
-  let ref=doc(db,"listas",actualId);
-  let snap=await getDoc(ref);
-  let data=snap.data();
-
-  data.items.push({nombre:"",cantidad:0});
-  await updateDoc(ref,{items:data.items});
-  abrir(actualId);
-};
-
-// borrar
-window.borrar=async(i)=>{
-  let ref=doc(db,"listas",actualId);
-  let snap=await getDoc(ref);
-  let data=snap.data();
-
-  data.items.splice(i,1);
-  await updateDoc(ref,{items:data.items});
-  abrir(actualId);
-};
-
-// nuevos items llenador
-window.nuevoNombre=(input)=>{
-  let index=[...document.querySelectorAll("#items input[type=text]")].indexOf(input);
-  nuevosItems[index]=nuevosItems[index]||{nombre:"",cantidad:0};
-  nuevosItems[index].nombre=input.value;
-};
-
-window.nuevoCantidad=(input)=>{
-  let index=[...document.querySelectorAll("#items .qty")].indexOf(input);
-  nuevosItems[index]=nuevosItems[index]||{nombre:"",cantidad:0};
-  nuevosItems[index].cantidad=input.value;
-};
-
-// compartir
-window.compartir=async(tipo)=>{
-
-  if(modo==="llenar"){
-    let ref=doc(db,"listas",actualId);
-    let snap=await getDoc(ref);
-    let data=snap.data();
-
-    let nuevos=nuevosItems.filter(i=>i && i.nombre);
-
-    data.items=[...data.items,...nuevos];
-
-    await updateDoc(ref,{items:data.items});
+    appDiv.appendChild(btn);
   }
 
-  let url=location.origin+location.pathname+"?id="+actualId+"&modo="+tipo;
-
-  if(navigator.share){
-    navigator.share({url});
-  }else{
-    navigator.clipboard.writeText(url);
-    alert("Link copiado");
+  if (mode === "viewer") {
+    html += `<p>Modo solo lectura</p>`;
   }
-};
 
-// volver
-window.volver=()=>location.href=location.pathname;
+  links.innerHTML = html;
+  appDiv.appendChild(links);
+}
 
-// init
-async function init(){
-  let p=new URLSearchParams(location.search);
-  let id=p.get("id");
-  let m=p.get("modo");
+/* CARGAR */
+async function loadData() {
+  try {
+    const ref = doc(db, "listas", listId);
+    const snap = await getDoc(ref);
 
-  if(id){
-    actualId=id;
-    modo=m||"creador";
-    abrir(id);
-  }else{
-    cargarListas();
+    if (snap.exists()) {
+      items = snap.data().items || [];
+    } else {
+      items = [];
+    }
+
+    render();
+
+  } catch (e) {
+    document.body.innerHTML = "Error cargando datos";
+    console.error(e);
   }
 }
 
-init();
-
+loadData();
 </script>
+
 </body>
 </html>
