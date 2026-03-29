@@ -2,28 +2,128 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Inventario PRO</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventario PRO</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+body { font-family: Arial; padding: 10px; }
+button { margin: 5px; }
+.lista, .sublista, .articulo { margin-left: 20px; margin-top:5px; }
+input { margin:2px; }
+</style>
 </head>
-
 <body>
 
 <h2>Inventario PRO</h2>
-<div id="app"></div>
+
+<div id="usuario">
+  Rol: 
+  <select id="rol">
+    <option value="creador">Creador</option>
+    <option value="llenador">Llenador</option>
+    <option value="visual">Visualizador</option>
+  </select>
+</div>
+
+<hr>
+<div>
+  <h3>Listas</h3>
+  <input type="text" id="nombreLista" placeholder="Nueva lista">
+  <button onclick="agregarLista()">+ Lista</button>
+  <div id="listas"></div>
+</div>
 
 <script>
-const params = new URLSearchParams(location.search);
-let mode = params.get("mode") || "creator";
+// ====== CONFIGURACIÓN FIREBASE ======
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  databaseURL: "TU_DB_URL",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_STORAGE_BUCKET",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-const app = document.getElementById("app");
+// ====== VARIABLES ======
+const rol = () => document.getElementById('rol').value;
 
-if (mode === "creator") {
-  app.innerHTML = "<h3>Modo Creador</h3>";
-} else if (mode === "filler") {
-  app.innerHTML = "<h3>Modo Llenador</h3>";
-} else {
-  app.innerHTML = "<h3>Modo Visual</h3>";
+// ====== AGREGAR LISTA ======
+function agregarLista(){
+  if(rol() !== 'creador') return alert("Solo el creador puede agregar listas");
+  const nombre = document.getElementById('nombreLista').value.trim();
+  if(!nombre) return;
+  const listaRef = db.ref('listas').push();
+  listaRef.set({ nombre: nombre, sublistas: {} });
+  document.getElementById('nombreLista').value = '';
 }
+
+// ====== AGREGAR SUBLISTA ======
+function agregarSublista(listaId){
+  if(rol() !== 'creador') return alert("Solo el creador puede agregar sublistas");
+  const nombre = prompt("Nombre de la sublista:");
+  if(!nombre) return;
+  const sublistaRef = db.ref(`listas/${listaId}/sublistas`).push();
+  sublistaRef.set({ nombre: nombre, articulos: {} });
+}
+
+// ====== AGREGAR ARTICULO ======
+function agregarArticulo(listaId, sublistaId){
+  if(rol() === 'visual') return alert("No puedes agregar artículos");
+  const nombre = prompt("Nombre del artículo:");
+  if(!nombre) return;
+  const cantidad = prompt("Cantidad:") || "0";
+  db.ref(`listas/${listaId}/sublistas/${sublistaId}/articulos/${nombre}`).set(Number(cantidad));
+}
+
+// ====== MOSTRAR LISTAS ======
+function mostrarListas(){
+  const cont = document.getElementById('listas');
+  cont.innerHTML = '';
+  db.ref('listas').on('value', snapshot => {
+    cont.innerHTML = '';
+    const listas = snapshot.val();
+    if(!listas) return;
+    for(const listaId in listas){
+      const l = listas[listaId];
+      const divL = document.createElement('div');
+      divL.className = 'lista';
+      divL.innerHTML = `<b>${l.nombre}</b> ${rol() === 'creador'? `<button onclick="agregarSublista('${listaId}')">+ Sublista</button>` : ''}`;
+      
+      const sublistDiv = document.createElement('div');
+      sublistDiv.className = 'sublistas';
+      
+      if(l.sublistas){
+        for(const subId in l.sublistas){
+          const s = l.sublistas[subId];
+          const divS = document.createElement('div');
+          divS.className = 'sublista';
+          divS.innerHTML = `<i>${s.nombre}</i> ${rol()!=='visual'? `<button onclick="agregarArticulo('${listaId}','${subId}')">+ Artículo</button>` : ''}`;
+          
+          const artDiv = document.createElement('div');
+          artDiv.className = 'articulos';
+          if(s.articulos){
+            for(const art in s.articulos){
+              const cantidad = s.articulos[art];
+              artDiv.innerHTML += `<div class="articulo">${art}: ${cantidad}</div>`;
+            }
+          }
+          divS.appendChild(artDiv);
+          sublistDiv.appendChild(divS);
+        }
+      }
+      divL.appendChild(sublistDiv);
+      cont.appendChild(divL);
+    }
+  });
+}
+
+// ====== INICIAR ======
+mostrarListas();
+
 </script>
 
 </body>
